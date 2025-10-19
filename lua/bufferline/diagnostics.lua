@@ -79,11 +79,11 @@ end
 local get_diagnostics = {
   nvim_lsp = function()
     local results = {}
-    local diagnostics = vim.diagnostic.get()
-    for _, d in pairs(diagnostics) do
-      if diagnostic_is_enabled(d) then
-        if not results[d.bufnr] then results[d.bufnr] = {} end
-        table.insert(results[d.bufnr], d)
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(bufnr) then
+        local diagnostics = vim.diagnostic.get(bufnr)
+        local enabled = vim.tbl_filter(diagnostic_is_enabled, diagnostics)
+        if #enabled > 0 then results[bufnr] = enabled end
       end
     end
     return results
