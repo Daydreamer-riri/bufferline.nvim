@@ -126,8 +126,63 @@ end
 
 local function get_marker_size(count, element_size) return count > 0 and strwidth(tostring(count)) + element_size or 0 end
 
-function M.refresh()
+---Throttle state for refresh function
+---@type {timer: number?, pending: boolean, last_call: number}
+local throttle_state = {
+  timer = nil,
+  pending = false,
+  last_call = 0,
+}
+
+---Execute the actual refresh operation
+local function do_refresh()
   vim.schedule(function() vim.cmd.redrawtabline() end)
+end
+
+---Throttled refresh function that ensures the last call is always executed
+---Uses a leading + trailing throttle strategy for optimal UX:
+--- - First call executes immediately (leading edge)
+--- - Subsequent calls within throttle window are debounced
+--- - Last call is guaranteed to execute (trailing edge)
+function M.refresh()
+  local throttle_ms = config.options.refresh_throttle_ms or 50
+
+  -- Disable throttling if set to 0
+  if throttle_ms <= 0 then
+    do_refresh()
+    return
+  end
+
+  local now = vim.loop.now()
+  local time_since_last = now - throttle_state.last_call
+
+  -- Leading edge: execute immediately if enough time has passed
+  if time_since_last >= throttle_ms then
+    throttle_state.last_call = now
+    throttle_state.pending = false
+    do_refresh()
+    return
+  end
+
+  -- Mark that we have a pending refresh
+  throttle_state.pending = true
+
+  -- Cancel existing timer if any
+  if throttle_state.timer then
+    vim.fn.timer_stop(throttle_state.timer)
+    throttle_state.timer = nil
+  end
+
+  -- Trailing edge: schedule execution after remaining throttle time
+  local remaining = throttle_ms - time_since_last
+  throttle_state.timer = vim.fn.timer_start(remaining, function()
+    if throttle_state.pending then
+      throttle_state.last_call = vim.loop.now()
+      throttle_state.pending = false
+      throttle_state.timer = nil
+      do_refresh()
+    end
+  end)
 end
 
 ---Add click action to a component

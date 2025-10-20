@@ -670,6 +670,7 @@ local function get_defaults()
     diagnostics_indicator = nil,
     diagnostics_update_in_insert = true,
     diagnostics_update_on_event = true,
+    refresh_throttle_ms = 50,
     offsets = {},
     groups = { items = {}, options = { toggle_hidden_on_enter = true } },
     hover = { enabled = false, reveal = {}, delay = 200 },
